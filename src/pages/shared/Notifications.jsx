@@ -1,33 +1,54 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import api from '../../api/axios';
+import getErrorMessage from '../../utils/errors';
+import Spinner from '../../components/Spinner';
+import Alert from '../../components/Alert';
+import toast from 'react-hot-toast';
 import { Bell, Check, Trash2 } from 'lucide-react';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/notifications').then(res => setNotifications(res.data.data)).finally(() => setLoading(false));
+    api.get('/notifications')
+      .then(res => setNotifications(res.data.data))
+      .catch(err => setError(getErrorMessage(err, 'Failed to load notifications')))
+      .finally(() => setLoading(false));
   }, []);
 
   const markRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`);
-    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to update notification'));
+    }
   };
 
   const markAllRead = async () => {
-    await api.patch('/notifications/read-all');
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications(notifications.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to update notifications'));
+    }
   };
 
   const deleteNotification = async (id) => {
-    await api.delete(`/notifications/${id}`);
-    setNotifications(notifications.filter(n => n.id !== id));
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(notifications.filter(n => n.id !== id));
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to delete notification'));
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>;
+  if (loading) return <Spinner />;
+  if (error) return <div className="max-w-2xl mx-auto px-4 py-8"><Alert type="error">{error}</Alert></div>;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -44,7 +65,7 @@ export default function Notifications() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="text-center py-20">
+        <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
           <Bell size={48} className="mx-auto text-gray-300 mb-4" />
           <p className="text-gray-500">No notifications</p>
         </div>

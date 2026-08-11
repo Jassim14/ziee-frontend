@@ -1,6 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
+import getErrorMessage from '../../utils/errors';
+import Alert from '../../components/Alert';
+import toast from 'react-hot-toast';
 import { LogIn } from 'lucide-react';
 
 export default function Login() {
@@ -17,19 +20,20 @@ export default function Login() {
     try {
       const result = await login(form.email, form.password);
       if (result.success) {
-        navigate('/');
+        toast.success(`Welcome back, ${result.user.fullName || 'user'}!`);
+        navigate('/dashboard');
       } else {
-        setError(result.message);
+        setError(result.message || 'Invalid email or password');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(getErrorMessage(err, 'Login failed'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -41,11 +45,7 @@ export default function Login() {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
-                {error}
-              </div>
-            )}
+            {error && <Alert type="error">{error}</Alert>}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>

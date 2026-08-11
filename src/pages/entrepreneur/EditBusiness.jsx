@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axios';
+import getErrorMessage from '../../utils/errors';
+import Alert from '../../components/Alert';
+import Spinner from '../../components/Spinner';
+import toast from 'react-hot-toast';
 import { Save } from 'lucide-react';
 
 export default function EditBusiness() {
@@ -13,14 +17,19 @@ export default function EditBusiness() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
     Promise.all([
       api.get(`/businesses/${id}`),
       api.get('/categories'),
     ]).then(([bizRes, catRes]) => {
+      if (!active) return;
       const b = bizRes.data.data;
       setForm({ name: b.name, description: b.description || '', location: b.location || '', phone: b.phone || '', email: b.email || '', categoryId: b.categoryId || '' });
       setCategories(catRes.data.data);
-    }).finally(() => setLoading(false));
+    }).catch(err => {
+      if (active) setError(getErrorMessage(err, 'Failed to load business'));
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [id]);
 
   const handleSubmit = async (e) => {
@@ -29,22 +38,24 @@ export default function EditBusiness() {
     setSaving(true);
     try {
       await api.put(`/businesses/${id}`, { ...form, categoryId: parseInt(form.categoryId) });
+      toast.success('Business updated');
       navigate('/my-businesses');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update business');
+      setError(getErrorMessage(err, 'Failed to update business'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>;
+  if (loading) return <Spinner />;
+  if (error) return <div className="max-w-2xl mx-auto px-4 py-8"><Alert type="error">{error}</Alert></div>;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Business</h1>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
+          {error && <Alert type="error">{error}</Alert>}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Business Name *</label>

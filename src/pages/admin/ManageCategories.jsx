@@ -1,16 +1,25 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import api from '../../api/axios';
+import getErrorMessage from '../../utils/errors';
+import Spinner from '../../components/Spinner';
+import Alert from '../../components/Alert';
+import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 
 export default function ManageCategories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: '', description: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get('/categories').then(res => setCategories(res.data.data)).finally(() => setLoading(false));
+    api.get('/categories')
+      .then(res => setCategories(res.data.data))
+      .catch(err => setError(getErrorMessage(err, 'Failed to load categories')))
+      .finally(() => setLoading(false));
   }, []);
 
   const openCreate = () => { setEditId(null); setForm({ name: '', description: '' }); setShowModal(true); };
@@ -18,31 +27,38 @@ export default function ManageCategories() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       if (editId) {
         const res = await api.put(`/categories/${editId}`, form);
         setCategories(categories.map(c => c.id === editId ? res.data.data : c));
+        toast.success('Category updated');
       } else {
         const res = await api.post('/categories', form);
         setCategories([...categories, res.data.data]);
+        toast.success('Category created');
       }
       setShowModal(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Operation failed');
+      toast.error(getErrorMessage(err, 'Operation failed'));
+    } finally {
+      setSaving(false);
     }
   };
 
   const deleteCategory = async (id) => {
-    if (!confirm('Delete this category?')) return;
+    if (!window.confirm('Delete this category? This cannot be undone.')) return;
     try {
       await api.delete(`/categories/${id}`);
       setCategories(categories.filter(c => c.id !== id));
+      toast.success('Category deleted');
     } catch (err) {
-      alert(err.response?.data?.message || 'Cannot delete category that has businesses');
+      toast.error(getErrorMessage(err, 'Cannot delete category that has businesses'));
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div></div>;
+  if (loading) return <Spinner />;
+  if (error) return <div className="max-w-4xl mx-auto px-4 py-8"><Alert type="error">{error}</Alert></div>;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -94,7 +110,9 @@ export default function ManageCategories() {
               </div>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+                <button type="submit" disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
               </div>
             </form>
           </div>

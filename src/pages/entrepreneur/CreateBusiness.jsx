@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
+import getErrorMessage from '../../utils/errors';
+import Alert from '../../components/Alert';
+import toast from 'react-hot-toast';
 import { Save } from 'lucide-react';
 
 export default function CreateBusiness() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [form, setForm] = useState({ name: '', description: '', location: '', phone: '', email: '', categoryId: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/categories').then(res => setCategories(res.data.data));
+    api.get('/categories')
+      .then(res => setCategories(res.data.data))
+      .catch(() => toast.error('Could not load categories'))
+      .finally(() => setLoadingCategories(false));
   }, []);
 
   const handleSubmit = async (e) => {
@@ -20,9 +27,10 @@ export default function CreateBusiness() {
     setLoading(true);
     try {
       await api.post('/businesses', { ...form, categoryId: parseInt(form.categoryId) });
+      toast.success('Business created');
       navigate('/my-businesses');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create business');
+      setError(getErrorMessage(err, 'Failed to create business'));
     } finally {
       setLoading(false);
     }
@@ -33,7 +41,7 @@ export default function CreateBusiness() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Create Business</h1>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
+          {error && <Alert type="error">{error}</Alert>}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Business Name *</label>
@@ -49,9 +57,9 @@ export default function CreateBusiness() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Category *</label>
-            <select required className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+            <select required disabled={loadingCategories} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white disabled:bg-gray-50"
               value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
-              <option value="">Select category</option>
+              <option value="">{loadingCategories ? 'Loading categories...' : 'Select category'}</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
