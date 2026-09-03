@@ -1,77 +1,199 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../api/axios';
+import { organizationApi } from '../../api/services';
 import getErrorMessage from '../../utils/errors';
 import Spinner from '../../components/Spinner';
 import Alert from '../../components/Alert';
+import Pagination from '../../components/Pagination';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import EmptyState from '../../components/EmptyState';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Eye, Mail, Phone, ExternalLink } from 'lucide-react';
 
 export default function MyOrganizations() {
   const [organizations, setOrganizations] = useState([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    api.get('/organizations/my')
-      .then(res => setOrganizations(res.data.data))
-      .catch(err => setError(getErrorMessage(err, 'Failed to load organizations')))
-      .finally(() => setLoading(false));
-  }, []);
+  // Delete Confirm
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const deleteOrg = async (id) => {
-    if (!window.confirm('Delete this organization? This cannot be undone.')) return;
+  const fetchMyOrgs = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      await api.delete(`/organizations/${id}`);
-      setOrganizations(organizations.filter(o => o.id !== id));
-      toast.success('Organization deleted');
+      const data = await organizationApi.getMy({ page, size: 8, sortBy: 'name', sortDir: 'asc' });
+      setOrganizations(data.items);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to load your organizations'));
+      setOrganizations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    fetchMyOrgs();
+  }, [fetchMyOrgs]);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+
+    try {
+      await organizationApi.remove(deleteTarget.id);
+      toast.success(`Organization "${deleteTarget.name}" deleted successfully.`);
+      setDeleteTarget(null);
+      fetchMyOrgs();
     } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to delete organization'));
+    } finally {
+      setDeleting(false);
     }
   };
 
-  if (loading) return <Spinner />;
-  if (error) return <div className="max-w-4xl mx-auto px-4 py-8"><Alert type="error">{error}</Alert></div>;
-
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Organizations</h1>
-        <Link to="/organizations/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
-          <Plus size={18} /> Add Organization
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Building2 className="text-blue-600" size={28} />
+            My Organizations
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Manage your partner organization profiles, branding, and contact details
+          </p>
+        </div>
+
+        <Link
+          to="/organizations/new"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-xs transition flex items-center gap-2 self-start sm:self-auto"
+        >
+          <Plus size={18} /> Register Organization
         </Link>
       </div>
 
-      {organizations.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
-          <Building2 size={48} className="mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-500 mb-4">No organizations yet</p>
-          <Link to="/organizations/new" className="text-blue-600 font-medium hover:text-blue-700">Create one</Link>
+      {loading ? (
+        <div className="py-24">
+          <Spinner />
         </div>
+      ) : error ? (
+        <Alert type="error" message={error} />
+      ) : organizations.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="No organizations registered yet"
+          message="Register your organization to host capacity building workshops, publish challenges, and support Zanzibari entrepreneurs."
+          action={
+            <Link
+              to="/organizations/new"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
+            >
+              <Plus size={18} /> Register Organization
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-4">
-          {organizations.map(o => (
-            <div key={o.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg">{o.name}</h3>
-                  {o.description && <p className="text-gray-600 text-sm mt-1 line-clamp-2">{o.description}</p>}
-                  {o.email && <p className="text-gray-500 text-sm mt-1">Email: {o.email}</p>}
-                  {o.phone && <p className="text-gray-500 text-sm">Phone: {o.phone}</p>}
+          {organizations.map((org) => (
+            <div
+              key={org.id}
+              className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 sm:p-6 transition hover:shadow-sm"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    {org.logoUrl ? (
+                      <img
+                        src={org.logoUrl}
+                        alt={org.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-blue-600 font-bold text-xl">{org.name?.charAt(0) || 'O'}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 text-lg">{org.name}</h3>
+                    {org.description && (
+                      <p className="text-gray-600 text-sm mt-1 line-clamp-2 leading-relaxed">
+                        {org.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-4 mt-3 text-xs text-gray-500 flex-wrap">
+                      {org.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail size={13} className="text-gray-400" /> {org.email}
+                        </span>
+                      )}
+                      {org.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone size={13} className="text-gray-400" /> {org.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-2 ml-4">
-                  <Link to={`/organizations/${o.id}/edit`} className="p-2 text-gray-400 hover:text-blue-600 transition" title="Edit">
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 self-end sm:self-start pt-2 sm:pt-0 border-t sm:border-0 border-gray-100 w-full sm:w-auto justify-end">
+                  <Link
+                    to={`/organizations/${org.id}`}
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"
+                    title="View public profile"
+                  >
+                    <Eye size={18} />
+                  </Link>
+                  <Link
+                    to={`/organizations/${org.id}/edit`}
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"
+                    title="Edit organization"
+                  >
                     <Edit2 size={18} />
                   </Link>
-                  <button onClick={() => deleteOrg(o.id)} className="p-2 text-gray-400 hover:text-red-500 transition" title="Delete">
+                  <button
+                    onClick={() => setDeleteTarget(org)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+                    title="Delete organization"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
             </div>
           ))}
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={(p) => setPage(p)}
+          />
         </div>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete Organization"
+        message={`Are you sure you want to permanently delete "${deleteTarget?.name}"? All associated trainings and challenges may be affected.`}
+        confirmLabel="Delete Organization"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   );
 }

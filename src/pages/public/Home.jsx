@@ -1,78 +1,106 @@
-﻿import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../../api/axios';
-import { Search, MapPin, ArrowRight, Building2, Users, Briefcase } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { businessApi, categoryApi } from '../../api/services';
+import BusinessCard from '../../components/BusinessCard';
+import Spinner from '../../components/Spinner';
+import Alert from '../../components/Alert';
+import { Search, ArrowRight, Building2, Users, Briefcase, Sparkles, FolderOpen } from 'lucide-react';
 
 export default function Home() {
+  const navigate = useNavigate();
   const [featured, setFeatured] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/businesses/search', { params: { page: 0, size: 6 } })
-      .then(res => setFeatured(res.data.data.content))
-      .catch(() => setFeatured([]));
-  }, []);
+    let active = true;
+    setLoading(true);
+    setError('');
 
-  useEffect(() => {
-    api.get('/categories')
-      .then(res => setCategories(res.data.data))
-      .catch(() => setCategories([]))
-      .finally(() => setLoading(false));
+    Promise.all([
+      businessApi.search({ page: 0, size: 6, sortBy: 'createdAt', sortDir: 'desc' }),
+      categoryApi.list({ page: 0, size: 8, sortBy: 'name', sortDir: 'asc' }),
+    ])
+      .then(([bizData, catData]) => {
+        if (!active) return;
+        setFeatured(bizData.items || []);
+        setCategories(catData.items || []);
+      })
+      .catch((err) => {
+        if (active) setError('Unable to load content. Please try again later.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
   }, []);
 
   const stats = [
     { icon: Briefcase, label: 'Local Businesses', value: 'Discover' },
     { icon: Users, label: 'Ecosystem', value: 'Entrepreneurs' },
-    { icon: Building2, label: 'Organizations', value: 'Support' },
+    { icon: Building2, label: 'Support & Growth', value: 'Programs' },
   ];
+
+  const handleHeroSearch = (e) => {
+    e.preventDefault();
+    if (search.trim()) {
+      navigate(`/businesses?search=${encodeURIComponent(search.trim())}`);
+    } else {
+      navigate('/businesses');
+    }
+  };
 
   return (
     <div>
-      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_50%)] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28 relative">
           <div className="max-w-3xl">
-            <h1 className="text-4xl lg:text-5xl font-bold leading-tight">
-              Grow your business with the Zanzibar Entrepreneur Ecosystem
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-xs text-xs font-semibold mb-6 border border-white/15 text-blue-100">
+              <Sparkles size={14} className="text-yellow-300" />
+              Zanzibar Entrepreneur Ecosystem
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
+              Empowering Zanzibar's Thriving Business Community
             </h1>
-            <p className="mt-4 text-lg text-blue-100">
-              ZIEE connects entrepreneurs, customers, and organizations across Zanzibar.
-              Discover businesses, share experiences, and be part of a thriving community.
+            <p className="mt-4 text-base sm:text-lg text-blue-100 leading-relaxed">
+              Connect with certified local businesses, discover authentic services, support entrepreneurs, and explore ecosystem development programs across Zanzibar.
             </p>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                window.location.href = `/businesses?search=${encodeURIComponent(search)}`;
-              }}
-              className="mt-8 flex flex-col sm:flex-row gap-3 bg-white/10 backdrop-blur rounded-2xl p-3"
+              onSubmit={handleHeroSearch}
+              className="mt-8 flex flex-col sm:flex-row gap-2.5 bg-white/10 backdrop-blur-md rounded-2xl p-2.5 border border-white/20 shadow-2xl"
             >
               <div className="flex-1 relative">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search businesses, services, and more..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none text-gray-900"
+                  placeholder="Search businesses, services, spices, crafts..."
+                  className="w-full pl-10 pr-4 py-3 bg-white rounded-xl focus:ring-2 focus:ring-blue-400 outline-none text-gray-900 text-sm placeholder-gray-400"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <button
                 type="submit"
-                className="px-6 py-3 bg-white text-blue-700 rounded-xl font-semibold hover:bg-blue-50 transition"
+                className="px-7 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition shadow-md text-sm whitespace-nowrap"
               >
-                Search
+                Search Marketplace
               </button>
             </form>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {stats.map(s => (
-                <div key={s.label} className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2.5">
+            <div className="mt-10 flex flex-wrap gap-3">
+              {stats.map((s) => (
+                <div key={s.label} className="flex items-center gap-2.5 bg-white/10 backdrop-blur-xs border border-white/10 rounded-2xl px-4 py-2.5">
                   <s.icon size={18} className="text-blue-200" />
                   <div>
-                    <p className="text-xs text-blue-200">{s.label}</p>
-                    <p className="text-sm font-semibold">{s.value}</p>
+                    <p className="text-[11px] text-blue-200 uppercase tracking-wider">{s.label}</p>
+                    <p className="text-sm font-bold text-white">{s.value}</p>
                   </div>
                 </div>
               ))}
@@ -81,78 +109,123 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Highlights */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
-              <Briefcase size={20} className="text-blue-600" />
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6">
+            <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center mb-4 text-blue-600">
+              <Briefcase size={22} />
             </div>
-            <h3 className="font-semibold text-gray-900">Register your business</h3>
-            <p className="text-sm text-gray-500 mt-1">Create a business profile and reach customers across Zanzibar.</p>
+            <h3 className="font-bold text-gray-900 text-lg">Register Your Business</h3>
+            <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
+              Create an official profile, upload photo galleries, and gain public credibility across Zanzibar.
+            </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
-              <MapPin size={20} className="text-green-600" />
+
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6">
+            <div className="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center mb-4 text-green-600">
+              <Users size={22} />
             </div>
-            <h3 className="font-semibold text-gray-900">Get discovered</h3>
-            <p className="text-sm text-gray-500 mt-1">Customers search, review, and favorite businesses they love.</p>
+            <h3 className="font-bold text-gray-900 text-lg">Customer Reviews & Ratings</h3>
+            <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
+              Discover top-rated services, save your favorites, and leave genuine reviews for businesses.
+            </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
-              <Users size={20} className="text-purple-600" />
+
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-6">
+            <div className="w-11 h-11 bg-purple-50 rounded-xl flex items-center justify-center mb-4 text-purple-600">
+              <Building2 size={22} />
             </div>
-            <h3 className="font-semibold text-gray-900">Join the ecosystem</h3>
-            <p className="text-sm text-gray-500 mt-1">Connect with organizations offering training, challenges, and support.</p>
+            <h3 className="font-bold text-gray-900 text-lg">Ecosystem Opportunities</h3>
+            <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">
+              Participate in specialized training programs and entrepreneurship challenges to accelerate growth.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="flex items-center justify-between mb-6">
+      {/* Featured Businesses */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Featured businesses</h2>
-            <p className="text-gray-500 text-sm mt-1">Handpicked businesses from the ZIEE community</p>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              Featured Businesses
+            </h2>
+            <p className="text-gray-500 text-sm mt-1">
+              Explore recently registered and approved enterprises in Zanzibar
+            </p>
           </div>
-          <Link to="/businesses" className="flex items-center gap-1 text-blue-600 font-medium text-sm hover:text-blue-700">
+          <Link
+            to="/businesses"
+            className="inline-flex items-center gap-1.5 text-blue-600 font-semibold text-sm hover:text-blue-700 transition"
+          >
             View all <ArrowRight size={16} />
           </Link>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="py-16">
+            <Spinner />
+          </div>
+        ) : error ? (
+          <div className="py-16">
+            <Alert type="error">{error}</Alert>
           </div>
         ) : featured.length === 0 ? (
-          <div className="text-center py-16 text-gray-500 bg-white rounded-xl border border-gray-200">No businesses yet â€” be the first to join!</div>
+          <div className="text-center py-16 text-gray-500 bg-white rounded-2xl border border-gray-200">
+            <Building2 size={36} className="mx-auto text-gray-300 mb-2" />
+            <p className="font-medium text-gray-700">No businesses listed yet</p>
+            <p className="text-xs text-gray-400 mt-1">Be the first entrepreneur to register your business on ZIEE!</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featured.map(b => (
-              <Link key={b.id} to={`/businesses/${b.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
-                <div className="h-36 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  <span className="text-white text-4xl font-bold">{b.name.charAt(0)}</span>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-gray-900 text-lg">{b.name}</h3>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{b.categoryName}</span>
-                  </div>
-                  {b.location && <p className="text-gray-500 text-sm mt-2 flex items-center gap-1"><MapPin size={14} /> {b.location}</p>}
-                  {b.description && <p className="text-gray-600 text-sm mt-2 line-clamp-2">{b.description}</p>}
-                </div>
-              </Link>
+            {featured.map((b) => (
+              <BusinessCard key={b.id} business={b} />
             ))}
           </div>
         )}
       </section>
 
+      {/* Browse by Category */}
       {categories.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Browse by category</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {categories.map(c => (
-              <Link key={c.id} to={`/businesses?categoryId=${c.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-blue-200 transition">
-                <h3 className="font-semibold text-gray-900">{c.name}</h3>
-                {c.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{c.description}</p>}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+                Browse by Category
+              </h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Find exactly what you are looking for by industry sector
+              </p>
+            </div>
+            <Link
+              to="/categories"
+              className="inline-flex items-center gap-1.5 text-blue-600 font-semibold text-sm hover:text-blue-700 transition"
+            >
+              All Categories <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {categories.map((c) => (
+              <Link
+                key={c.id}
+                to={`/businesses?categoryId=${c.id}`}
+                className="bg-white rounded-2xl shadow-xs border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col justify-between"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                    <FolderOpen size={18} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-base group-hover:text-blue-600 transition-colors line-clamp-1">
+                    {c.name}
+                  </h3>
+                </div>
+                {c.description && (
+                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                    {c.description}
+                  </p>
+                )}
               </Link>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function Contact() {
   return (
@@ -37,7 +38,7 @@ export default function Contact() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            alert('Thank you for your message. We will get back to you soon.');
+            toast.success('Thank you for your message. We will get back to you soon.');
             e.currentTarget.reset();
           }}
           className="space-y-5"

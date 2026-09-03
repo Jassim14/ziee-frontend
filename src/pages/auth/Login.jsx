@@ -1,27 +1,52 @@
-﻿import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import getErrorMessage from '../../utils/errors';
+import { validateForm, required, email } from '../../utils/validation';
 import Alert from '../../components/Alert';
 import toast from 'react-hot-toast';
 import { LogIn } from 'lucide-react';
 
+const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition";
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (sessionStorage.getItem('session_expired')) {
+      sessionStorage.removeItem('session_expired');
+      toast.error('Your session has expired. Please sign in again.');
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const nextErrors = validateForm({
+      email: [required('Email is required'), email()],
+      password: [required('Password is required')],
+    }, form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
     setError('');
     setLoading(true);
     try {
-      const result = await login(form.email, form.password);
+      const result = await login(form.email.trim(), form.password);
       if (result.success) {
         toast.success(`Welcome back, ${result.user.fullName || 'user'}!`);
-        navigate('/dashboard');
+        const redirectTo = location.state?.from || searchParams.get('from') || '/dashboard';
+        navigate(redirectTo);
+      } else if (result.message === 'EMAIL_NOT_VERIFIED') {
+        sessionStorage.setItem('verifyEmail', form.email.trim());
+        toast.error('Please verify your email before signing in.');
+        navigate('/verify-email');
       } else {
         setError(result.message || 'Invalid email or password');
       }
@@ -51,22 +76,28 @@ export default function Login() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input
                 type="email"
-                required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                className={`${inputClass} ${errors.email ? 'border-red-400' : ''}`}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
+              {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <input
                 type="password"
-                required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                className={`${inputClass} ${errors.password ? 'border-red-400' : ''}`}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
+              {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
+            </div>
+
+            <div className="flex items-center justify-end">
+              <Link to="/forgot-password" className="text-sm text-blue-600 font-medium hover:text-blue-700">
+                Forgot password?
+              </Link>
             </div>
 
             <button
