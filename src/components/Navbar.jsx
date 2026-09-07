@@ -1,6 +1,6 @@
 ﻿import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { publicLinks, getRoleLinks } from '../navigation';
+import { publicLinks } from '../navigation';
 import { Bell, User, Menu, X, ChevronDown, Check, CheckCheck } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { notificationApi } from '../api/services';
@@ -15,7 +15,7 @@ function getRelatedLink(type, id) {
   }
 }
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick }) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
@@ -109,8 +109,6 @@ export default function Navbar() {
     }
   };
 
-  const authedLinks = user ? getRoleLinks(user.role) : [];
-
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -122,6 +120,19 @@ export default function Navbar() {
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
     return d.toLocaleDateString();
+  };
+
+  // Authenticated + layout (sidebar available): hamburger opens the Sidebar drawer
+  // Authenticated + public page (no sidebar): no hamburger
+  // Unauthenticated: toggles the public mobile nav dropdown
+  const showHamburger = !isAuthenticated || Boolean(onMenuClick);
+
+  const handleMobileToggle = () => {
+    if (isAuthenticated && onMenuClick) {
+      onMenuClick();
+    } else if (!isAuthenticated) {
+      setMobileOpen(!mobileOpen);
+    }
   };
 
   return (
@@ -136,25 +147,27 @@ export default function Navbar() {
               <span className="text-xl font-bold text-gray-900">ZIEE</span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-1 min-w-0 overflow-x-auto">
-              {publicLinks.map(link => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  end={link.to === '/'}
-                  className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                      isActive ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-            </div>
+            {!isAuthenticated && (
+              <div className="hidden md:flex items-center gap-1 min-w-0 overflow-x-auto">
+                {publicLinks.map(link => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    end={link.to === '/'}
+                    className={({ isActive }) =>
+                      `px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                        isActive ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className={`${isAuthenticated ? 'flex' : 'hidden md:flex'} items-center gap-3`}>
             {!isAuthenticated ? (
               <>
                 <Link to="/login" className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-700">Sign In</Link>
@@ -162,12 +175,6 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                {authedLinks.length > 0 && (
-                  <Link to="/dashboard" className="px-3 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100">
-                    Dashboard
-                  </Link>
-                )}
-
                 {/* Notification Dropdown */}
                 <div className="relative" ref={notifRef}>
                   <button
@@ -264,7 +271,7 @@ export default function Navbar() {
                         <User size={16} className="text-blue-600" />
                       )}
                     </div>
-                    <span className="font-medium max-w-[10rem] truncate">{user.fullName}</span>
+                    <span className="font-medium max-w-[10rem] truncate hidden sm:inline">{user.fullName}</span>
                     <ChevronDown size={14} />
                   </button>
                   {profileOpen && (
@@ -280,15 +287,17 @@ export default function Navbar() {
             )}
           </div>
 
-          <div className="md:hidden flex items-center">
-            <button onClick={() => setMobileOpen(!mobileOpen)} className="p-2 text-gray-500" aria-label="Toggle menu">
-              {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
+          {showHamburger && (
+            <div className={`${isAuthenticated ? 'lg:hidden' : 'md:hidden'} flex items-center`}>
+              <button onClick={handleMobileToggle} className="p-2 text-gray-500" aria-label="Toggle menu">
+                {!isAuthenticated && mobileOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {mobileOpen && (
+      {!isAuthenticated && mobileOpen && (
         <div className="md:hidden border-t bg-white px-4 py-3 space-y-1">
           {publicLinks.map(link => (
             <NavLink
@@ -303,27 +312,10 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
-          {isAuthenticated ? (
-            <>
-              <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">Dashboard</NavLink>
-              {authedLinks.filter(l => l.to !== '/dashboard').map(link => (
-                <NavLink key={link.to} to={link.to} end={link.to === '/'} onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">
-                  {link.label}
-                </NavLink>
-              ))}
-              <NavLink to="/notifications" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">
-                Notifications {unread > 0 && `(${unread} unread)`}
-              </NavLink>
-              <NavLink to="/notification-preferences" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">Notification Preferences</NavLink>
-              <NavLink to="/profile" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-medium text-gray-700">Profile</NavLink>
-              <button onClick={handleLogout} className="block py-2 text-sm font-medium text-red-600">Logout</button>
-            </>
-          ) : (
-            <div className="pt-2 flex gap-2">
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700">Sign In</Link>
-              <Link to="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">Join ZIEE</Link>
-            </div>
-          )}
+          <div className="pt-2 flex gap-2">
+            <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700">Sign In</Link>
+            <Link to="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">Join ZIEE</Link>
+          </div>
         </div>
       )}
     </nav>

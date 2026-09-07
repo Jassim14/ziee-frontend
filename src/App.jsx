@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import MainLayout from './layouts/MainLayout';
 import AppLayout from './layouts/AppLayout';
+import SharedLayout from './layouts/SharedLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -71,15 +72,17 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<MainLayout><Home /></MainLayout>} />
-        <Route path="/businesses" element={<MainLayout><Businesses /></MainLayout>} />
-        <Route path="/businesses/:id" element={<MainLayout><BusinessDetail /></MainLayout>} />
-        <Route path="/categories" element={<MainLayout><Categories /></MainLayout>} />
-        <Route path="/organizations" element={<MainLayout><Organizations /></MainLayout>} />
-        <Route path="/organizations/:id" element={<MainLayout><OrganizationDetail /></MainLayout>} />
-        <Route path="/trainings" element={<MainLayout><BrowseTrainings /></MainLayout>} />
-        <Route path="/trainings/:id" element={<MainLayout><TrainingDetail /></MainLayout>} />
-        <Route path="/challenges" element={<MainLayout><BrowseChallenges /></MainLayout>} />
-        <Route path="/challenges/:id" element={<MainLayout><ChallengeDetail /></MainLayout>} />
+        {/* SharedLayout: keeps authenticated users (Entrepreneur/Customer) inside the
+            sidebar layout when navigating to Trainings/Challenges etc. */}
+        <Route path="/businesses" element={<SharedLayout><Businesses /></SharedLayout>} />
+        <Route path="/businesses/:id" element={<SharedLayout><BusinessDetail /></SharedLayout>} />
+        <Route path="/categories" element={<SharedLayout><Categories /></SharedLayout>} />
+        <Route path="/organizations" element={<SharedLayout><Organizations /></SharedLayout>} />
+        <Route path="/organizations/:id" element={<SharedLayout><OrganizationDetail /></SharedLayout>} />
+        <Route path="/trainings" element={<SharedLayout><BrowseTrainings /></SharedLayout>} />
+        <Route path="/trainings/:id" element={<SharedLayout><TrainingDetail /></SharedLayout>} />
+        <Route path="/challenges" element={<SharedLayout><BrowseChallenges /></SharedLayout>} />
+        <Route path="/challenges/:id" element={<SharedLayout><ChallengeDetail /></SharedLayout>} />
         <Route path="/about" element={<MainLayout><About /></MainLayout>} />
         <Route path="/contact" element={<MainLayout><Contact /></MainLayout>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -88,44 +91,54 @@ export default function App() {
         <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
         <Route path="/verify-email" element={<VerifyEmail />} />
 
-        {/* Authenticated landing (role-based redirect) */}
-        <Route path="/dashboard" element={<ProtectedRoute><AppLayout><DashboardRouter /></AppLayout></ProtectedRoute>} />
+        {/* Authenticated layout: pathless layout route keeps Navbar + Sidebar
+            mounted while only the main content (Outlet) changes on navigation */}
+        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          {/* Authenticated landing (role-based redirect) */}
+          <Route path="/dashboard" element={<DashboardRouter />} />
 
-        {/* Customer */}
-        <Route path="/customer-dashboard" element={<ProtectedRoute roles={['CUSTOMER']}><AppLayout><CustomerDashboard /></AppLayout></ProtectedRoute>} />
-        <Route path="/favorites" element={<ProtectedRoute><AppLayout><Favorites /></AppLayout></ProtectedRoute>} />
-        <Route path="/my-reviews" element={<ProtectedRoute roles={['CUSTOMER']}><AppLayout><MyReviews /></AppLayout></ProtectedRoute>} />
-        <Route path="/my-registrations" element={<ProtectedRoute roles={['CUSTOMER', 'ENTREPRENEUR']}><AppLayout><MyRegistrations /></AppLayout></ProtectedRoute>} />
-        <Route path="/my-applications" element={<ProtectedRoute roles={['CUSTOMER', 'ENTREPRENEUR']}><AppLayout><MyApplications /></AppLayout></ProtectedRoute>} />
+          {/* Customer */}
+          <Route path="/customer-dashboard" element={<ProtectedRoute roles={['CUSTOMER']}><CustomerDashboard /></ProtectedRoute>} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/my-reviews" element={<ProtectedRoute roles={['CUSTOMER']}><MyReviews /></ProtectedRoute>} />
+          <Route path="/my-registrations" element={<ProtectedRoute roles={['CUSTOMER', 'ENTREPRENEUR']}><MyRegistrations /></ProtectedRoute>} />
+          <Route path="/my-applications" element={<ProtectedRoute roles={['CUSTOMER', 'ENTREPRENEUR']}><MyApplications /></ProtectedRoute>} />
+          <Route path="/my-trainings/:id/register" element={<ProtectedRoute roles={['CUSTOMER']}><TrainingDetail /></ProtectedRoute>} />
+          <Route path="/challenges/:id/apply" element={<ProtectedRoute roles={['CUSTOMER']}><ChallengeDetail /></ProtectedRoute>} />
+          
 
-        {/* Entrepreneur */}
-        <Route path="/my-businesses" element={<ProtectedRoute roles={['ENTREPRENEUR']}><AppLayout><MyBusinesses /></AppLayout></ProtectedRoute>} />
-        <Route path="/business/new" element={<ProtectedRoute roles={['ENTREPRENEUR']}><AppLayout><CreateBusiness /></AppLayout></ProtectedRoute>} />
-        <Route path="/businesses/:id/edit" element={<ProtectedRoute roles={['ENTREPRENEUR']}><AppLayout><EditBusiness /></AppLayout></ProtectedRoute>} />
+          {/* Entrepreneur */}
+          <Route path="/my-businesses" element={<ProtectedRoute roles={['ENTREPRENEUR']}><MyBusinesses /></ProtectedRoute>} />
+          <Route path="/business/new" element={<ProtectedRoute roles={['ENTREPRENEUR']}><CreateBusiness /></ProtectedRoute>} />
+          <Route path="/businesses/:id/edit" element={<ProtectedRoute roles={['ENTREPRENEUR']}><EditBusiness /></ProtectedRoute>} />
+          <Route path="/businesses/:id" element={<ProtectedRoute roles={['ENTREPRENEUR']}><BusinessDetail /></ProtectedRoute>} />
+          <Route path="/trainings/:id/register" element={<ProtectedRoute roles={['ENTREPRENEUR']}><TrainingDetail /></ProtectedRoute>} />
+          <Route path="/challenges/:id/apply" element={<ProtectedRoute roles={['ENTREPRENEUR']}><ChallengeDetail /></ProtectedRoute>} />
 
-        {/* Admin */}
-        <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><AdminDashboard /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageUsers /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/organizations" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageOrganizations /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/categories" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageCategories /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/approve" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ApproveBusinesses /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/trainings" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageTrainings /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/challenges" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageChallenges /></AppLayout></ProtectedRoute>} />
-        <Route path="/admin/reviews" element={<ProtectedRoute roles={['ADMIN']}><AppLayout><ManageReviews /></AppLayout></ProtectedRoute>} />
+          {/* Admin */}
+          <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute roles={['ADMIN']}><ManageUsers /></ProtectedRoute>} />
+          <Route path="/admin/organizations" element={<ProtectedRoute roles={['ADMIN']}><ManageOrganizations /></ProtectedRoute>} />
+          <Route path="/admin/categories" element={<ProtectedRoute roles={['ADMIN']}><ManageCategories /></ProtectedRoute>} />
+          <Route path="/admin/approve" element={<ProtectedRoute roles={['ADMIN']}><ApproveBusinesses /></ProtectedRoute>} />
+          <Route path="/admin/trainings" element={<ProtectedRoute roles={['ADMIN']}><ManageTrainings /></ProtectedRoute>} />
+          <Route path="/admin/challenges" element={<ProtectedRoute roles={['ADMIN']}><ManageChallenges /></ProtectedRoute>} />
+          <Route path="/admin/reviews" element={<ProtectedRoute roles={['ADMIN']}><ManageReviews /></ProtectedRoute>} />
 
-        {/* Organization */}
-        <Route path="/my-organizations" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><MyOrganizations /></AppLayout></ProtectedRoute>} />
-        <Route path="/organizations/new" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><CreateOrganization /></AppLayout></ProtectedRoute>} />
-        <Route path="/organizations/:id/edit" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><CreateOrganization /></AppLayout></ProtectedRoute>} />
-        <Route path="/org-trainings" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><Trainings /></AppLayout></ProtectedRoute>} />
-        <Route path="/org-trainings/:id/participants" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><TrainingParticipants /></AppLayout></ProtectedRoute>} />
-        <Route path="/org-challenges" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><Challenges /></AppLayout></ProtectedRoute>} />
-        <Route path="/org-challenges/:id/applications" element={<ProtectedRoute roles={['ORGANIZATION']}><AppLayout><ChallengeApplications /></AppLayout></ProtectedRoute>} />
+          {/* Organization */}
+          <Route path="/my-organizations" element={<ProtectedRoute roles={['ORGANIZATION']}><MyOrganizations /></ProtectedRoute>} />
+          <Route path="/organizations/new" element={<ProtectedRoute roles={['ORGANIZATION']}><CreateOrganization /></ProtectedRoute>} />
+          <Route path="/organizations/:id/edit" element={<ProtectedRoute roles={['ORGANIZATION']}><CreateOrganization /></ProtectedRoute>} />
+          <Route path="/org-trainings" element={<ProtectedRoute roles={['ORGANIZATION']}><Trainings /></ProtectedRoute>} />
+          <Route path="/org-trainings/:id/participants" element={<ProtectedRoute roles={['ORGANIZATION']}><TrainingParticipants /></ProtectedRoute>} />
+          <Route path="/org-challenges" element={<ProtectedRoute roles={['ORGANIZATION']}><Challenges /></ProtectedRoute>} />
+          <Route path="/org-challenges/:id/applications" element={<ProtectedRoute roles={['ORGANIZATION']}><ChallengeApplications /></ProtectedRoute>} />
 
-        {/* Shared */}
-        <Route path="/profile" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><AppLayout><Notifications /></AppLayout></ProtectedRoute>} />
-        <Route path="/notification-preferences" element={<ProtectedRoute><AppLayout><NotificationSettings /></AppLayout></ProtectedRoute>} />
+          {/* Shared */}
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/notification-preferences" element={<NotificationSettings />} />
+        </Route>
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,40 +1,11 @@
-﻿import { NavLink, Link, useNavigate } from 'react-router-dom';
+﻿import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getRoleLinks } from '../navigation';
-import { Bell, User, LogOut, X } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
-import { notificationApi } from '../api/services';
+import { X } from 'lucide-react';
 
 export default function Sidebar({ open, onClose }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const links = user ? getRoleLinks(user.role) : [];
-  const [unread, setUnread] = useState(0);
-
-  const fetchUnread = useCallback(() => {
-    if (user) {
-      notificationApi.unreadCount()
-        .then(setUnread)
-        .catch(() => {});
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 60000);
-    const onPopState = () => fetchUnread();
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('popstate', onPopState);
-    };
-  }, [fetchUnread]);
-
-  const handleLogout = () => {
-    logout();
-    if (onClose) onClose();
-    navigate('/login');
-  };
 
   const navLinkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -42,41 +13,6 @@ export default function Sidebar({ open, onClose }) {
         ? 'bg-blue-50 text-blue-700'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
     }`;
-
-  const authLinks = (
-    <>
-      <div className="border-t border-gray-100 mt-2 pt-2 space-y-1">
-        <NavLink
-          to="/profile"
-          onClick={onClose}
-          className={navLinkClass}
-        >
-          <User size={18} />
-          Profile
-        </NavLink>
-        <NavLink
-          to="/notifications"
-          onClick={onClose}
-          className={navLinkClass}
-        >
-          <Bell size={18} />
-          <span className="flex-1">Notifications</span>
-          {unread > 0 && (
-            <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
-        </NavLink>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 w-full transition-colors"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
-      </div>
-    </>
-  );
 
   return (
     <>
@@ -90,7 +26,7 @@ export default function Sidebar({ open, onClose }) {
 
       {/* Mobile drawer */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50 transform transition-transform duration-200 ease-in-out lg:hidden ${
+        className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white shadow-xl z-40 transform transition-transform duration-200 ease-in-out lg:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -116,21 +52,21 @@ export default function Sidebar({ open, onClose }) {
               {link.label}
             </NavLink>
           ))}
-          {authLinks}
         </nav>
       </aside>
 
-      {/* Desktop sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh)] hidden lg:block">
-        <nav className="p-4 space-y-1 sticky top-0">
-          {links.map((link) => (
-            <NavLink key={link.to} to={link.to} className={navLinkClass}>
-              <link.icon size={18} />
-              {link.label}
-            </NavLink>
-          ))}
-          {authLinks}
-        </nav>
+      {/* Desktop sidebar — sticky below the navbar so it stays visible while scrolling */}
+      <aside className="w-64 shrink-0 bg-white border-r border-gray-200 hidden lg:block">
+        <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav className="p-4 space-y-1">
+            {links.map((link) => (
+              <NavLink key={link.to} to={link.to} className={navLinkClass}>
+                <link.icon size={18} />
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </aside>
     </>
   );
